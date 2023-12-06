@@ -1,0 +1,150 @@
+<template>
+    <div id="app">
+        <div class="container mt-5">
+            <div class="card">
+                <div class="card-body">
+                    <h1 class="card-title text-center">EMI Calculator</h1>
+
+                    <form @submit.prevent="calculateEMI">
+                        <div class="mb-3">
+                            <label for="loanAmount" class="form-label">Loan Amount:</label>
+                            <input v-model="loanAmount" type="number" class="form-control" id="loanAmount" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="loanTerm" class="form-label">Loan Term (in months):</label>
+                            <input v-model="loanTerm" type="number" class="form-control" id="loanTerm" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="interestRate" class="form-label">Interest Rate (%):</label>
+                            <input v-model="interestRate" type="number" class="form-control" id="interestRate"
+                                required />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Calculate EMI</button>
+                    </form>
+
+                    <div v-if="results" class="mt-4">
+                        <h2 class="text-center">EMI Details:</h2>
+                        <p><strong>EMI:</strong> {{ results.emi }}</p>
+                        <p><strong>Total Interest:</strong> {{ results.totalInterest }}</p>
+                        <p><strong>Total Payable:</strong> {{ results.totalPayable }}</p>
+                    </div>
+
+                    <div v-if="results && results.pieChartData" class="mt-4">
+                        <h2 class="text-center">Payment Breakdown</h2>
+                        <canvas id="pieChart" width="400" height="400"></canvas>
+                    </div>
+
+                    <div v-if="results && results.tableData" class="mt-4">
+                        <h2 class="text-center">Payment Schedule</h2>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Month</th>
+                                    <th>EMI</th>
+                                    <th>Principal</th>
+                                    <th>Interest</th>
+                                    <th>Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(row, index) in results.tableData" :key="index">
+                                    <td>{{ index + 1 }}</td>
+                                    <td>{{ row.emi }}</td>
+                                    <td>{{ row.principal }}</td>
+                                    <td>{{ row.interest }}</td>
+                                    <td>{{ row.balance }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+    import Chart from 'chart.js/auto';
+
+    export default {
+        data() {
+            return {
+                loanAmount: null,
+                loanTerm: null,
+                interestRate: null,
+                results: null,
+            };
+        },
+        methods: {
+            calculateEMI() {
+                if (!this.loanAmount || !this.loanTerm || !this.interestRate) {
+                    alert("Please enter all the required values.");
+                    return;
+                }
+
+                const monthlyRate = this.interestRate / 100 / 12;
+                const numberOfPayments = this.loanTerm;
+                const emi =
+                    (this.loanAmount * monthlyRate * Math.pow(1 + monthlyRate, numberOfPayments)) /
+                    (Math.pow(1 + monthlyRate, numberOfPayments) - 1);
+
+                const totalInterest = emi * numberOfPayments - this.loanAmount;
+                const totalPayable = emi * numberOfPayments;
+
+                const pieChartData = [70, 30];
+                const tableData = Array.from({ length: numberOfPayments }, (_, index) => ({
+                    emi: emi.toFixed(2),
+                    principal: (emi - (this.loanAmount * monthlyRate)).toFixed(2),
+                    interest: (this.loanAmount * monthlyRate).toFixed(2),
+                    balance: (
+                        this.loanAmount * Math.pow(1 + monthlyRate, numberOfPayments - (index + 1)) -
+                        emi * (Math.pow(1 + monthlyRate, numberOfPayments - (index + 1)) - 1) /
+                        monthlyRate
+                    ).toFixed(2),
+                }));
+
+                this.results = {
+                    emi: emi.toFixed(2),
+                    totalInterest: totalInterest.toFixed(2),
+                    totalPayable: totalPayable.toFixed(2),
+                    pieChartData,
+                    tableData,
+                };
+
+                this.renderPieChart();
+            },
+            renderPieChart() {
+                const ctx = document.getElementById('pieChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Principal', 'Interest'],
+                        datasets: [{
+                            data: this.results.pieChartData,
+                            backgroundColor: ['#007bff', '#dc3545'],
+                        }],
+                    },
+                });
+            },
+        },
+    };
+</script>
+
+<style>
+    #app {
+        font-family: 'Arial', sans-serif;
+        text-align: center;
+    }
+
+    .card {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .form-label {
+        font-weight: bold;
+    }
+</style>
